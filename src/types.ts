@@ -51,6 +51,8 @@ export interface CoachLogEntry {
   message: string
 }
 
+export type Lang = 'he' | 'en'
+
 export interface AppState {
   onboarded: boolean
   profile: Profile | null
@@ -64,6 +66,7 @@ export interface AppState {
   lastCheckedDate: string | null
   coachLog: CoachLogEntry[]
   notificationsEnabled: boolean
+  lang: Lang
 }
 
 export const INITIAL_STATE: AppState = {
@@ -79,4 +82,5 @@ export const INITIAL_STATE: AppState = {
   lastCheckedDate: null,
   coachLog: [],
   notificationsEnabled: false,
+  lang: 'he',
 }

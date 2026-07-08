@@ -26,11 +26,20 @@ class LocalStorageRepository implements Repository {
   }
 
   saveState(state: AppState): void {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    } catch {
+      // Storage can be unavailable (private mode, sandboxed iframe). The app
+      // stays fully functional in-memory for the session.
+    }
   }
 
   clearState(): void {
-    localStorage.removeItem(STORAGE_KEY)
+    try {
+      localStorage.removeItem(STORAGE_KEY)
+    } catch {
+      /* ignore */
+    }
   }
 }
 

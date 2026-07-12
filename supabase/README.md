@@ -1,55 +1,69 @@
-# NoDaysOff — Supabase backend foundation
+# NoDaysOff — Supabase backend
 
-Database schema only. No business logic lives here: streak/shield math,
-mission generation, AI coach message generation, and notification dispatch
-are all intentionally left out — this is just the tables, constraints, and
-Row Level Security they'll read and write.
+Spec-aligned backend foundation, built from the **Backend Foundation Technical
+Specification**. This round delivers the **schema + security foundation**
+(Phases 2–3 tables and the security scaffolding of Phases 4–8). Domain logic —
+onboarding-step RPCs, deterministic plan generation, mission/shield/streak
+functions, cron sweeps, and Edge Functions — lands in later rounds.
 
-## Tables
+## Tables (13)
 
 | Table | Purpose |
 |---|---|
-| `user_profiles` | Onboarding profile + generated calorie target. One row per auth user (`id` = `auth.users.id`). |
-| `workout_schedule_days` | The weekly plan: one row per user per weekday (0=Sunday..6=Saturday), `workout` or `rest`. |
-| `daily_missions` | One mission per user per calendar date, snapshotted from the plan. |
-| `mission_outcomes` | One outcome per mission (`pending`/`success`/`missed`/`overage`). |
-| `streak_states` | One row per user: current/longest streak + last processed date. |
-| `monthly_shield_states` | One shield balance (0–4, half-steps allowed) per user per calendar month. |
-| `coach_events` | Log of triggers the coach reacts to (`app_open`, `mission_complete`, `full_penalty`, `half_penalty`, `new_streak`, `new_month`, `achievement`). |
-| `coach_messages` | Messages actually shown to the user, optionally linked to the event that triggered them. |
-| `push_tokens` | Device push tokens; a user may register multiple devices. |
-| `notification_logs` | Record of notifications actually sent. |
-| `calorie_entries` | Individual calorie log entries (Add/Edit/Delete); a day's consumed total is the SUM of its entries. `meal_type` ∈ breakfast/lunch/dinner/snack/other. |
-| `weekly_checkins` | Mandatory Sunday–Saturday weekly check-in / plan confirmation. One row per user per week; `status` ∈ pending/confirmed/missed. |
-| `schedule_versions` | Per-week workout-layout version history (`days` jsonb). Row count per week is the edit audit trail. |
+| `user_profiles` | Authoritative profile, onboarding state (`onboarding_state_enum`), preferences, timezone, and current plan pointers. One row per auth user (`user_id` = `auth.users.id`). |
+| `user_plan_versions` | Immutable versioned plan history; at most one `active` per user. Holds calorie target + explainable `calorie_explanation`. |
+| `workout_schedule_days` | Seven rows per activated plan; workout/rest per ISO weekday (1=Mon..7=Sun). |
+| `daily_missions` | One authoritative mission per user-local date, with timezone snapshot and lifecycle status. |
+| `mission_outcomes` | One immutable outcome per mission; `idempotency_key` dedupes completion. |
+| `streak_states` | Current/longest streak + flame state cache. |
+| `monthly_shield_states` | One shield balance per user per local month; starts at 4.0. |
+| `shield_transactions` | Append-only shield ledger; idempotency + partial uniques prevent double penalties. |
+| `coach_events` | Structured authoritative events with a personality snapshot. |
+| `coach_messages` | One-way system messages (not chat); future AI output is presentation only. |
+| `notification_preferences` | Onboarding notification decision + channel prefs. |
+| `push_tokens` | User-owned device registrations; raw tokens never stored in cleartext/logs. |
+| `notification_logs` | Delivery audit for scheduled notifications. |
 
-Key relationships enforced at the DB level (not in application code):
-- One profile per auth user — `user_profiles.id` is both the primary key and the FK to `auth.users.id`.
-- One mission per user per date — `unique (user_id, mission_date)` on `daily_missions`.
-- One outcome per mission — `mission_outcomes.mission_id` is its primary key, and a composite FK against `daily_missions (id, user_id)` guarantees an outcome's `user_id` can never diverge from its mission's real owner.
-- One streak state per user — `streak_states.user_id` is its primary key.
-- One shield state per user per month — `unique (user_id, shield_month)` on `monthly_shield_states`.
-- Calorie entries belong to a real owned day — composite FK `calorie_entries (user_id, mission_date)` → `daily_missions (user_id, mission_date)`.
-- One check-in per user per week — `unique (user_id, week_start)` on `weekly_checkins`.
-- Unique version per week — `unique (user_id, week_start, version)` on `schedule_versions`.
+Enums (`public.*_enum`) and a `private` schema (internal/scheduled functions)
+are created first in `20260712140000_enums.sql`.
 
-Not enforced in the DB (application / edge-function logic, per the schema-only posture): daily calorie aggregation, weekly-checkin gating, missed-Sunday evaluation, exact workout-count validation, and the one-schedule-edit-per-week limit.
+### Integrity enforced at the DB level
+- **One profile per auth user** — `user_profiles.user_id` PK/FK to `auth.users`.
+- **Ownership consistency** — composite `(id, user_id)` foreign keys so a child row's `user_id` can't diverge from its parent's owner (plans→schedule/missions, missions→outcomes/shield ledger, shield state→ledger, events→messages, and `user_profiles.active_plan_id`→same-user plan).
+- **One active plan per user** — partial unique index `where status = 'active'`.
+- **One mission per user per date** — `unique (user_id, mission_date)`.
+- **One outcome per mission** + **one penalty of each kind per mission** — unique + partial-unique on the ledger; plus `idempotency_key` uniqueness on outcomes, shield transactions, coach events, and notification logs.
+- **One shield state per user per month**; `remaining_points` clamped `0 … allocated`.
+- Workout days require a positive `duration_minutes`; rest days forbid it.
 
-## Row Level Security
+### Not invented here (pending product approval — spec §16/§18)
+Calorie-formula coefficients/bounds, exact age/height/weight/duration ranges,
+streak-with-Shield semantics, Flame reactivation, and the Rest-Day calorie
+source are **not** hard-coded. The schema uses only wide sanity checks
+(`> 0`); product ranges and the streak/shield/plan logic arrive with the RPC
+layer once those questions are answered.
 
-RLS is enabled on all 13 tables. Every policy scopes access to `auth.uid()`
-matching the row's owner (`id` for `user_profiles`, `user_id` everywhere
-else) — a user can only ever see or modify their own data.
+## Security
 
-The `service_role` key bypasses RLS by design (standard Supabase behavior)
-so backend/edge-function code can operate across users. **That key must
-never be shipped to a frontend build or exposed in a client-readable env
-var** (e.g. anything prefixed `VITE_`/`NEXT_PUBLIC_`/`EXPO_PUBLIC_`) — only
-the `anon`/publishable key and a user's own session belong on the client.
+RLS is enabled on all 13 tables; every policy is scoped `to authenticated`
+with `(select auth.uid()) = user_id`. **Reads** are own-row everywhere.
+**Writes** are denied by default and go through `SECURITY DEFINER` RPCs
+(later rounds) — except the spec-permitted direct own-row writes: profile
+edits (restricted to an allowlist of 12 answer columns via column `GRANT`s,
+with a `guard_user_profile_protected_fields` trigger as defense in depth),
+notification preferences, and push tokens.
+
+Structural functions use `SECURITY DEFINER` only where they must write
+protected tables, each with `set search_path = ''`, fully-qualified names, and
+`execute` revoked from `public`/`anon`. `handle_new_auth_user` bootstraps the
+profile on signup; `ensure_user_profile()` is the idempotent recovery RPC.
+
+The `service_role` key bypasses RLS by design — **never ship it to a frontend
+build or a client-readable env var** (`VITE_`/`NEXT_PUBLIC_`/`EXPO_PUBLIC_`).
 
 ## Running the migrations
 
-Against a real Supabase project:
+Real Supabase project:
 
 ```bash
 npx supabase login
@@ -57,35 +71,45 @@ npx supabase link --project-ref <your-project-ref>
 npx supabase db push
 ```
 
-Against a local stack (requires Docker):
+Local stack (requires Docker):
 
 ```bash
 npx supabase start
 npx supabase db reset   # applies migrations/*.sql then seed.sql
 ```
 
-## Verifying it works
+## How this was verified
 
-This sandbox has no Docker daemon, so the migrations were verified against
-a plain local Postgres 16 instance with a minimal `auth.users` stub and an
-`auth.uid()` shim instead of the full Supabase stack. Confirmed:
+No Docker in the build sandbox, so the migrations were applied to a plain
+**Postgres 16** with a realistic stub: an `auth` schema (`auth.users` +
+`auth.uid()` shim), and `anon` / `authenticated` roles. All four migrations
+apply cleanly in order. Behavioral checks confirmed:
 
-- Both migration files apply cleanly in order with no errors.
-- `seed.sql` inserts without violating any constraint.
-- RLS actually isolates rows: a session with no identity sees zero rows
-  everywhere; a session impersonating the seeded user sees exactly its own
-  profile/streak/mission rows; a session impersonating a different user
-  sees zero of that data; inserting a row for another user's `user_id`
-  while impersonating someone else is rejected.
-- `daily_missions` rejects a second row for the same `(user_id, mission_date)`.
-- `mission_outcomes` rejects a second row for the same `mission_id`.
-- `mission_outcomes` rejects a `user_id` that doesn't match its mission's
-  real owner (composite FK).
+- Inserting an `auth.users` row fires `handle_new_auth_user` → exactly one
+  profile at `account_created`, copying only `display_name` metadata.
+- `ensure_user_profile()` is idempotent.
+- RLS isolates rows: no session → 0 rows; user A sees only A; user B sees 0 of
+  A's rows; a forged insert of another user's row is rejected by `with check`.
+- Column lockdown: an allowlisted column update succeeds; a protected column
+  update is denied. The guard trigger rejects protected writes even when column
+  privileges are bypassed, and allows them only inside the approved
+  (`private.allow_protected_profile_write`) function context.
+- Composite-ownership FK rejects a mission referencing another user's plan.
+- Partial uniques reject a 2nd active plan per user and a 2nd missed-workout
+  penalty per mission; the day-type check rejects a workout day with no
+  duration.
 
-To re-verify yourself with the real Supabase CLI once Docker is available:
+Re-verify with the real CLI once Docker is available:
 
 ```bash
-npx supabase start
-npx supabase db reset
-npx supabase test db   # or query directly via `npx supabase db psql`
+npx supabase start && npx supabase db reset
+npx supabase db psql   # then run cross-user / transition tests
 ```
+
+## Roadmap (remaining spec phases)
+
+Onboarding-step RPC state machine · deterministic plan generation (needs
+approved calorie constants) · `ensure_daily_mission` / `complete_mission` /
+shield-penalty / streak functions (need streak & flame-reactivation rules) ·
+cron sweeps (daily mission, monthly shield, notifications, weekly review) ·
+Edge Function contracts (coach message, push delivery).

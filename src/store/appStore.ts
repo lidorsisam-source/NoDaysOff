@@ -9,12 +9,17 @@ import { coachProvider } from '../lib/coachProvider'
 export type Phase = 'splash' | 'onboarding' | 'notif' | 'main'
 export type Tab = 'home' | 'progress' | 'coach' | 'profile'
 
+/** Local hour after which an unfinished mission puts the flame "in danger". */
+export const DANGER_HOUR = 18
+
 interface UIState {
   phase: Phase
   tab: Tab
   /** Set right after a mission is completed to trigger the celebration overlay. */
   celebrating: boolean
   showSettings: boolean
+  /** Evening "flame in danger" takeover (mission still open after 18:00). */
+  dangerOpen: boolean
 }
 
 interface Actions {
@@ -32,6 +37,8 @@ interface Actions {
   setLang: (lang: Lang) => void
   toggleNotifications: (on: boolean) => void
   dismissCelebration: () => void
+  openDanger: () => void
+  dismissDanger: () => void
   logout: () => void
 }
 
@@ -95,6 +102,7 @@ export const useStore = create<Store>((set, get) => {
     tab: 'home',
     celebrating: false,
     showSettings: false,
+    dangerOpen: false,
 
     init: () => {
       const loaded = repository.loadState()
@@ -150,7 +158,7 @@ export const useStore = create<Store>((set, get) => {
       set({ history, streak, longestStreak })
       coach('mission_complete')
       if (STREAK_MILESTONES.includes(streak)) coach('achievement')
-      set({ celebrating: true })
+      set({ celebrating: true, dangerOpen: false })
       persist()
     },
 
@@ -177,7 +185,7 @@ export const useStore = create<Store>((set, get) => {
       set({ history, streak, longestStreak, shields, shieldEvents })
       coach(over ? 'half_penalty' : 'mission_complete')
       if (!over && STREAK_MILESTONES.includes(streak)) coach('achievement')
-      set({ celebrating: !over })
+      set({ celebrating: !over, dangerOpen: false })
       persist()
     },
 
@@ -215,10 +223,20 @@ export const useStore = create<Store>((set, get) => {
 
     dismissCelebration: () => set({ celebrating: false }),
 
+    openDanger: () => set({ dangerOpen: true }),
+    dismissDanger: () => set({ dangerOpen: false, tab: 'home' }),
+
     logout: () => {
       repository.clearState()
       const fresh = repository.loadState()
-      set({ ...fresh, phase: 'onboarding', tab: 'home', celebrating: false, showSettings: false })
+      set({
+        ...fresh,
+        phase: 'onboarding',
+        tab: 'home',
+        celebrating: false,
+        showSettings: false,
+        dangerOpen: false,
+      })
     },
   }
 })

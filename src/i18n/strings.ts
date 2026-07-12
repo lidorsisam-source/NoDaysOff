@@ -75,6 +75,10 @@ export const STRINGS = {
     // mission complete overlay
     mcTitle: 'המשימה הושלמה',
     mcClose: 'יאללה',
+    // flame danger (18:00, mission still open)
+    dangerTitle: 'הלהבה שלך בסכנה',
+    dangerSub: 'עוד לא סימנת את המשימה של היום. עוד כמה שעות — והרצף נכבה.',
+    dangerCta: 'אני על זה',
     // progress
     progressTitle: 'ההתקדמות שלך',
     currentStreak: 'רצף נוכחי',
@@ -172,6 +176,9 @@ export const STRINGS = {
     shieldOf: 'of',
     mcTitle: 'Mission complete',
     mcClose: "Let's go",
+    dangerTitle: 'Your flame is in danger',
+    dangerSub: "You haven't checked in today. A few more hours — and the streak goes out.",
+    dangerCta: "I'm on it",
     progressTitle: 'Your progress',
     currentStreak: 'Current streak',
     longestStreak: 'Longest streak',

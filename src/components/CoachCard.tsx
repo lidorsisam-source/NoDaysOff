@@ -1,4 +1,4 @@
-import { brand } from '../brand/assets'
+import { CoachPortrait } from './CoachPortrait'
 
 interface Props {
   message: string
@@ -20,16 +20,13 @@ export function CoachCard({ message, coachLabel, revealKey }: Props) {
         style={{ background: 'radial-gradient(120% 100% at 100% 0, rgba(255,106,0,0.12), transparent 55%)' }}
       />
       <div className="relative flex items-stretch gap-3 p-3">
-        <div className="relative h-24 w-20 shrink-0 overflow-hidden rounded-2xl bg-black ring-1 ring-[var(--color-line-2)]">
-          <img
-            src={brand.coach}
-            alt=""
-            aria-hidden
-            className="h-full w-full scale-125 object-cover object-top"
-            style={{ objectPosition: '50% 12%' }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-        </div>
+        <CoachPortrait
+          live
+          shade
+          className="h-24 w-20 shrink-0 rounded-2xl"
+          mediaClassName="scale-125"
+          position="50% 12%"
+        />
         <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
           <span className="font-display text-xs tracking-[0.22em] text-[var(--color-orange)]">
             {coachLabel}

@@ -2,7 +2,7 @@ import { useStore } from '../store/appStore'
 import { useI18n } from '../i18n/useI18n'
 import { Screen } from '../components/Layout'
 import { Button } from '../components/ui/Button'
-import { brand } from '../brand/assets'
+import { CoachPortrait } from '../components/CoachPortrait'
 import type { CoachStyle, Goal } from '../types'
 
 export function Profile() {
@@ -50,9 +50,7 @@ export function Profile() {
           {t.coachPresence}
         </span>
         <div className="mt-3 flex items-center gap-4">
-          <div className="h-20 w-16 shrink-0 overflow-hidden rounded-xl bg-black ring-1 ring-[var(--color-line-2)]">
-            <img src={brand.coach} alt="" aria-hidden className="h-full w-full scale-110 object-cover object-top" style={{ objectPosition: '50% 10%' }} />
-          </div>
+          <CoachPortrait className="h-20 w-16 shrink-0 rounded-xl" mediaClassName="scale-110" position="50% 10%" />
           <div className="min-w-0">
             <p className="font-display text-lg text-white">{coachLabel}</p>
             {coachLog[0] && (

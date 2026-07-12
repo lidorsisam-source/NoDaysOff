@@ -6,6 +6,7 @@ import { Shield } from '../components/Shield'
 import { CoachCard } from '../components/CoachCard'
 import { MissionCard } from '../components/MissionCard'
 import { MissionComplete } from './MissionComplete'
+import { DANGER_HOUR } from '../store/appStore'
 
 export function Home() {
   const { t } = useI18n()
@@ -19,6 +20,8 @@ export function Home() {
 
   const mission = useTodaysMission()
   const latestCoach = coachLog[0]
+  // The flame gutters when evening arrives and the day's mission is still open.
+  const danger = !mission.completed && new Date().getHours() >= DANGER_HOUR
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col">
@@ -29,10 +32,10 @@ export function Home() {
         </span>
       </header>
 
-      <main className="flex-1 px-5 pb-32">
+      <main className="stagger flex-1 px-5 pb-32">
         {/* 1. Flame / streak — top of the hierarchy */}
         <div className="flex flex-col items-center pt-2 pb-4">
-          <Flame streak={streak} label={t.dayStreak} />
+          <Flame streak={streak} label={danger ? t.dangerTitle : t.dayStreak} danger={danger} />
         </div>
 
         {/* 2. Coach message — always visible */}

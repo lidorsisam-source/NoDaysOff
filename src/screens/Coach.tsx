@@ -2,7 +2,7 @@ import { useStore } from '../store/appStore'
 import { useI18n } from '../i18n/useI18n'
 import { Screen } from '../components/Layout'
 import { EmptyState } from '../components/ui/states'
-import { brand } from '../brand/assets'
+import { CoachPortrait } from '../components/CoachPortrait'
 
 /** Relative "time ago" using only the active language, numbers stay LTR. */
 function timeAgo(iso: string, lang: 'he' | 'en'): string {
@@ -36,15 +36,12 @@ export function Coach() {
           style={{ background: 'radial-gradient(130% 90% at 100% 0, rgba(255,106,0,0.16), transparent 55%)' }}
         />
         <div className="relative flex items-center gap-4 p-4">
-          <div className="h-28 w-24 shrink-0 overflow-hidden rounded-2xl bg-black ring-1 ring-[var(--color-line-2)]">
-            <img
-              src={brand.coach}
-              alt=""
-              aria-hidden
-              className="h-full w-full scale-110 object-cover object-top"
-              style={{ objectPosition: '50% 10%' }}
-            />
-          </div>
+          <CoachPortrait
+            live
+            className="h-28 w-24 shrink-0 rounded-2xl"
+            mediaClassName="scale-110"
+            position="50% 10%"
+          />
           <div>
             <span className="font-display text-xs tracking-[0.22em] text-[var(--color-orange)]">
               {t.coachTitle}

@@ -10,6 +10,9 @@ export const brand = {
   logoFlame: '/brand/logo-flame.png',
   /** Flame/bolt mark on its own — drives the streak / Flame component. */
   flame: '/brand/flame.png',
-  /** Coach character portrait. */
+  /** Coach character portrait (static). */
   coach: '/brand/coach.png',
+  /** Coach living-portrait loop (muted video; static portrait is the poster/fallback). */
+  coachMotionWebm: '/brand/coach-motion.webm',
+  coachMotionMp4: '/brand/coach-motion.mp4',
 } as const

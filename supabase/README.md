@@ -19,6 +19,9 @@ Row Level Security they'll read and write.
 | `coach_messages` | Messages actually shown to the user, optionally linked to the event that triggered them. |
 | `push_tokens` | Device push tokens; a user may register multiple devices. |
 | `notification_logs` | Record of notifications actually sent. |
+| `calorie_entries` | Individual calorie log entries (Add/Edit/Delete); a day's consumed total is the SUM of its entries. `meal_type` ∈ breakfast/lunch/dinner/snack/other. |
+| `weekly_checkins` | Mandatory Sunday–Saturday weekly check-in / plan confirmation. One row per user per week; `status` ∈ pending/confirmed/missed. |
+| `schedule_versions` | Per-week workout-layout version history (`days` jsonb). Row count per week is the edit audit trail. |
 
 Key relationships enforced at the DB level (not in application code):
 - One profile per auth user — `user_profiles.id` is both the primary key and the FK to `auth.users.id`.
@@ -26,10 +29,15 @@ Key relationships enforced at the DB level (not in application code):
 - One outcome per mission — `mission_outcomes.mission_id` is its primary key, and a composite FK against `daily_missions (id, user_id)` guarantees an outcome's `user_id` can never diverge from its mission's real owner.
 - One streak state per user — `streak_states.user_id` is its primary key.
 - One shield state per user per month — `unique (user_id, shield_month)` on `monthly_shield_states`.
+- Calorie entries belong to a real owned day — composite FK `calorie_entries (user_id, mission_date)` → `daily_missions (user_id, mission_date)`.
+- One check-in per user per week — `unique (user_id, week_start)` on `weekly_checkins`.
+- Unique version per week — `unique (user_id, week_start, version)` on `schedule_versions`.
+
+Not enforced in the DB (application / edge-function logic, per the schema-only posture): daily calorie aggregation, weekly-checkin gating, missed-Sunday evaluation, exact workout-count validation, and the one-schedule-edit-per-week limit.
 
 ## Row Level Security
 
-RLS is enabled on all 10 tables. Every policy scopes access to `auth.uid()`
+RLS is enabled on all 13 tables. Every policy scopes access to `auth.uid()`
 matching the row's owner (`id` for `user_profiles`, `user_id` everywhere
 else) — a user can only ever see or modify their own data.
 
